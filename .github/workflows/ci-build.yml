@@ -17,15 +17,17 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build with ncc
         run: npm run build
 
-      - name: Commit built files
+      - name: Commit built files and lockfile
         uses: EndBug/add-and-commit@v9
         with:
           author_name: github-actions
           author_email: github-actions@github.com
-          message: 'chore: build dist [skip ci]'
-          add: 'dist/'
+          message: 'chore: build dist and lockfile [skip ci]'
+          add: |
+            dist/
+            package-lock.json
