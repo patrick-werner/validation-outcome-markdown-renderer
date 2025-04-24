@@ -1,7 +1,5 @@
 name: "FHIR Validation Markdown Renderer"
-description: >
-  Parses the JSON `OperationOutcome` bundle produced by the Java FHIR Validator, emits GitHub check annotations (❌, ⚠️, ℹ️) for issues at or above the configured severity, supports optional filtering by `messageId` and wildcard patterns on the details text, and generates a summary Markdown table with issue counts and columns (File, Severity, Details, Location, Code, MessageId) in the GitHub Checks UI.
-author: "Patrick Werner <pa.f.werner@gmail.com>"
+description: "Parses Java FHIR Validator OperationOutcome JSON, annotates GitHub Checks, filters issues, and renders a summary table."
 inputs:
   bundle-file:
     description: "Path to the OperationOutcome JSON file"
