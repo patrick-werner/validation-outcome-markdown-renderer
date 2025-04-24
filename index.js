@@ -1,17 +1,18 @@
 const core = require('@actions/core');
 const fs = require('fs');
+const path = require('path');
 
 async function run() {
   try {
-    // 1) Inputs holen
+    // 1) Inputs
     const bundlePath = core.getInput('bundle-file', { required: true });
     const include = core.getInput('include') || 'errors';
 
-    // 2) Bundle einlesen
+    // 2) Load and parse
     const text = fs.readFileSync(bundlePath, 'utf8');
     const bundle = JSON.parse(text);
 
-    // 3) Severity-Level bestimmen
+    // 3) Determine minimum severity
     const sevOrder = ['error', 'warning', 'information'];
     let minIndex;
     switch (include) {
@@ -28,20 +29,23 @@ async function run() {
         throw new Error(`Invalid include value: ${include}`);
     }
 
-    // 4) Issues sammeln
+    // 4) Collect issues
     const issues = [];
     let hasError = false;
 
     bundle.entry.forEach(entry => {
       const res = entry.resource;
-      const filePath = (res.extension || [])
+      // original file path from OperationOutcome extension
+      const rawPath = (res.extension || [])
       .find(ext => ext.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-file')
           ?.valueString || '(unknown file)';
+      // just the filename
+      const fileName = path.basename(rawPath);
 
       (res.issue || [])
       .filter(issue => sevOrder.indexOf(issue.severity) <= minIndex)
       .forEach(issue => {
-        // Location bestimmen
+          // location
         const expr = issue.expression;
         const locExt = issue.extension || [];
         const lineExt = locExt.find(e => e.url.endsWith('-line'));
@@ -52,59 +56,64 @@ async function run() {
                 ? `Line ${lineExt.valueInteger}, Column ${colExt.valueInteger}`
                 : '(unknown location)';
 
+          // messageId extension
+          const msgIdExt = locExt.find(e =>
+            e.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id'
+          );
+          const messageId = msgIdExt?.valueCode || '';
+
         const severity = issue.severity.toUpperCase();
         const code     = issue.code;
         const details  = issue.details.text;
 
-        // GitHub-Annotierung
-        const msg = `${filePath} | ${severity} | ${code} | ${location} | ${details}`;
-        if (issue.severity === 'error')      core.error(msg);
-        else if (issue.severity === 'warning') core.warning(msg);
-        else                                   core.info(msg);
+          // annotate in logs
+          const annot = `${fileName} | ${severity} | ${code} | ${location} | ${messageId} | ${details}`;
+          if      (issue.severity === 'error')   core.error(annot);
+          else if (issue.severity === 'warning') core.warning(annot);
+          else                                   core.info(annot);
 
         if (issue.severity === 'error') hasError = true;
 
-        // Für Summary-Tabelle speichern
-        issues.push({ file: filePath, severity, location, code, details });
+          // collect for summary
+          issues.push({ fileName, severity, location, code, messageId, details });
       });
     });
 
-    // 5) CI-Logik: fail oder loggen je nach include
-    if (hasError && include === 'errors') {
-      core.setFailed('❌ FHIR Validation: at least one error found.');
-    } else if (hasError && include === 'warnings') {
-      core.info('⚠️ FHIR Validation: warnings (and possible errors) reported.');
-    } else if (hasError && include === 'all') {
-      core.info('ℹ️ FHIR Validation: all issues reported.');
-    } else {
-      core.info('✅ FHIR Validation: no issues of the selected severity found.');
-    }
+    // 5) CI logic
+    if      (hasError && include === 'errors')   core.setFailed('❌ FHIR Validation: at least one error found.');
+    else if (hasError && include === 'warnings') core.info('⚠️ FHIR Validation: warnings (and possible errors) reported.');
+    else if (hasError && include === 'all')      core.info('ℹ️ FHIR Validation: all issues reported.');
+    else                                         core.info('✅ FHIR Validation: no issues of the selected severity found.');
 
-    // 6) Markdown-Summary für GitHub Checks UI
+    // 6) GitHub Checks Summary
+    const severityIcon = {
+      'ERROR':       '❌',
+      'WARNING':     '⚠️',
+      'INFORMATION': 'ℹ️'
+    };
+
     const summary = core.summary;
     summary.addHeading('FHIR Validation Results', 2);
 
-    // Tabelle bauen
+    // build table: File | Severity | Location | Code | MessageId | Details
     const table = [
-      ['File', 'Severity', 'Location', 'Code', 'Details'],
+      ['File', 'Severity', 'Location', 'Code', 'MessageId', 'Details'],
       ...issues.map(i => [
-        i.file,
-        i.severity,
+        i.fileName,
+        severityIcon[i.severity] || i.severity,
         i.location,
         i.code,
-        i.details.replace(/\|/g, '\\|')  // Pipes escapen
+        i.messageId,
+        i.details.replace(/\|/g, '\\|')  // escape pipes
       ])
     ];
     summary.addTable(table);
 
-    // Zusammenfassungstext
-    if (hasError) {
-      summary.addRaw('\n❌ At least one error was found.');
-    } else {
-      summary.addRaw('\n✅ No errors were found.');
-    }
+    summary.addRaw(hasError
+      ? '\n❌ At least one error was found.'
+      : '\n✅ No errors were found.'
+    );
 
-    // Summary schreiben
     await summary.write();
 
   } catch (err) {
