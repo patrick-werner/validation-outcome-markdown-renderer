@@ -1,5 +1,9 @@
 name: Build and Commit dist
 
+# make sure GITHUB_TOKEN can push
+permissions:
+  contents: write
+
 on:
   # Run on every push to any branch (or limit to e.g. 'main' if you prefer)
   push:
