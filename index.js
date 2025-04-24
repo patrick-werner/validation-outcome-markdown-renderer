@@ -122,6 +122,8 @@ async function run() {
     const severityIcon = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
 
     const summary = core.summary;
+
+    // Heading + counts paragraph
     summary.addHeading('FHIR Validation Results', 2);
 
     // Insert counts summary
@@ -130,7 +132,7 @@ async function run() {
     const infoCount    = issues.filter(i => i.severity === 'INFORMATION').length;
     const generated    = new Date().toISOString();
 
-    summary.addRaw(
+    summary.addParagraph(
       `${errorCount} ${severityIcon.ERROR} errors, ` +
       `${warningCount} ${severityIcon.WARNING} warnings, ` +
       `${infoCount} ${severityIcon.INFORMATION} hints. ` +
@@ -151,6 +153,7 @@ async function run() {
     ];
     summary.addTable(table);
 
+    // final note
     summary.addRaw(hasError
       ? '\n❌ At least one error was found.'
       : '\n✅ No errors were found.'
