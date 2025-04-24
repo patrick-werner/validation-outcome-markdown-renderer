@@ -27607,11 +27607,13 @@ async function run() {
         const locExt = issue.extension || [];
         const lineExt = locExt.find(e => e.url.endsWith('-line'));
         const colExt  = locExt.find(e => e.url.endsWith('-col'));
-        const location = expr
+          let location = expr
             ? expr.join(', ')
             : (lineExt && colExt)
                 ? `Line ${lineExt.valueInteger}, Column ${colExt.valueInteger}`
                 : '(unknown location)';
+          // inject zero-width spaces after each dot so GitHub can wrap
+          location = location.replace(/\./g, '.\u200B');
 
           // messageId extension
           const msgIdExt = locExt.find(e =>
@@ -27652,16 +27654,16 @@ async function run() {
     const summary = core.summary;
     summary.addHeading('FHIR Validation Results', 2);
 
-    // build table: File | Severity | Location | Code | MessageId | Details
+    // build table: File | Severity | Details | Location | Code | MessageId
     const table = [
-      ['File', 'Severity', 'Location', 'Code', 'MessageId', 'Details'],
+      ['File', 'Severity', 'Details', 'Location', 'Code', 'MessageId'],
       ...issues.map(i => [
         i.fileName,
-        severityIcon[i.severity] || i.severity,
+        `${severityIcon[i.severity] || ''} ${i.severity}`,
+        i.details.replace(/\|/g, '\\|'),
         i.location,
         i.code,
-        i.messageId,
-        i.details.replace(/\|/g, '\\|')  // escape pipes
+        i.messageId
       ])
     ];
     summary.addTable(table);
