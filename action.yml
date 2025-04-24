@@ -16,7 +16,7 @@ inputs:
     default: "errors"
 runs:
   using: "node16"
-  main: "index.js"
+  main: "dist/index.js"
 branding:
   icon: "terminal"
   color: "black"
