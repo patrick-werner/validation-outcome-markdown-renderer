@@ -9,10 +9,6 @@ on:
   push:
     branches:
       - '**'
-  # Also run when a release is published
-  release:
-    types:
-      - published
   # Allow manual invocation
   workflow_dispatch:
 
