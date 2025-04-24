@@ -124,6 +124,19 @@ async function run() {
     const summary = core.summary;
     summary.addHeading('FHIR Validation Results', 2);
 
+    // Insert counts summary
+    const errorCount   = issues.filter(i => i.severity === 'ERROR').length;
+    const warningCount = issues.filter(i => i.severity === 'WARNING').length;
+    const infoCount    = issues.filter(i => i.severity === 'INFORMATION').length;
+    const generated    = new Date().toISOString();
+
+    summary.addRaw(
+      `${errorCount} ${severityIcon.ERROR} errors, ` +
+      `${warningCount} ${severityIcon.WARNING} warnings, ` +
+      `${infoCount} ${severityIcon.INFORMATION} hints. ` +
+      `Generated ${generated}`
+    );
+
     // build table: File | Severity | Details | Location | Code | MessageId
     const table = [
       ['File', 'Severity', 'Details', 'Location', 'Code', 'MessageId'],
