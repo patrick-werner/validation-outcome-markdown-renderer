@@ -132,11 +132,8 @@ async function run() {
     const infoCount    = issues.filter(i => i.severity === 'INFORMATION').length;
     const generated    = new Date().toISOString();
 
-    summary.addParagraph(
-      `${errorCount} ${severityIcon.ERROR} errors, ` +
-      `${warningCount} ${severityIcon.WARNING} warnings, ` +
-      `${infoCount} ${severityIcon.INFORMATION} hints. ` +
-      `Generated ${generated}`
+    summary.addRaw(
+        `<p>${errorCount} ❌ errors, ${warningCount} ⚠️ warnings, ${infoCount} ℹ️ hints. Generated ${generated}</p>\n`
     );
 
     // build table: File | Severity | Details | Location | Code | MessageId
