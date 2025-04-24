@@ -1,8 +1,16 @@
 name: Build and Commit dist
 
 on:
+  # Run on every push to any branch (or limit to e.g. 'main' if you prefer)
+  push:
+    branches:
+      - '**'
+  # Also run when a release is published
   release:
-    types: [published]
+    types:
+      - published
+  # Allow manual invocation
+  workflow_dispatch:
 
 jobs:
   build:
