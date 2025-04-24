@@ -1,0 +1,22 @@
+name: "FHIR Validation Markdown Renderer"
+description: "Parses a FHIR OperationOutcome bundle and outputs issues at or above a configurable severity level."
+author: "Patrick Werner <pa.f.werner@gmail.com>"
+inputs:
+  bundle-file:
+    description: "Path to the OperationOutcome JSON file"
+    required: true
+    default: "validation.json"
+  include:
+    description: |
+      Which severities to output:
+      - errors: only issues with severity = error
+      - warnings: issues with severity = error or warning
+      - all: issues of any severity (error, warning, information)
+    required: false
+    default: "errors"
+runs:
+  using: "node16"
+  main: "index.js"
+branding:
+  icon: "terminal"
+  color: "black"
