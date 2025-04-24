@@ -14,6 +14,15 @@ inputs:
       - all: issues of any severity (error, warning, information)
     required: false
     default: "errors"
+  filters:
+    description: >
+      Line-separated list of filters in the form
+      `messageId|detailsWildcard`.
+      - `messageId` must match exactly.
+      - `detailsWildcard` may use `*` as a wildcard.
+      - If one part is empty, it will be ignored.
+    required: false
+
 runs:
   using: "node16"
   main: "dist/index.js"
