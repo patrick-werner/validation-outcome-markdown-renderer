@@ -27559,11 +27559,32 @@ const core = __nccwpck_require__(7484);
 const fs = __nccwpck_require__(9896);
 const path = __nccwpck_require__(6928);
 
+function wildcardMatch(text, pattern) {
+  // escape regex metachars, then replace * → .*
+  const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$', 'i');
+  return regex.test(text);
+}
+
 async function run() {
   try {
     // 1) Inputs
     const bundlePath = core.getInput('bundle-file', { required: true });
     const include = core.getInput('include') || 'errors';
+    const rawFilters = core.getInput('filters')     || '';
+
+    // parse filters: line-separated "messageId|detailsWildcard"
+    const filtersArr = rawFilters
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(entry => {
+        const [ msgId, detPattern ] = entry.split('|');
+        return {
+          msgId:       msgId?.trim() || '',
+          detPattern:  detPattern?.trim() || ''
+        };
+      });
 
     // 2) Load and parse
     const text = fs.readFileSync(bundlePath, 'utf8');
@@ -27625,6 +27646,16 @@ async function run() {
         const code     = issue.code;
         const details  = issue.details.text;
 
+        // ––– apply filters if any
+        if (filtersArr.length > 0) {
+          const matches = filtersArr.some(f => {
+            const byId   = !f.msgId      || messageId === f.msgId;
+            const byDet  = !f.detPattern || wildcardMatch(details, f.detPattern);
+            return byId && byDet;
+          });
+          if (!matches) return;  // skip this issue
+        }
+
           // annotate in logs
           const annot = `${fileName} | ${severity} | ${code} | ${location} | ${messageId} | ${details}`;
           if      (issue.severity === 'error')   core.error(annot);
@@ -27634,7 +27665,7 @@ async function run() {
         if (issue.severity === 'error') hasError = true;
 
           // collect for summary
-          issues.push({ fileName, severity, location, code, messageId, details });
+        issues.push({ fileName, severity, details, location, code, messageId });
       });
     });
 
@@ -27645,11 +27676,7 @@ async function run() {
     else                                         core.info('✅ FHIR Validation: no issues of the selected severity found.');
 
     // 6) GitHub Checks Summary
-    const severityIcon = {
-      'ERROR':       '❌',
-      'WARNING':     '⚠️',
-      'INFORMATION': 'ℹ️'
-    };
+    const severityIcon = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
 
     const summary = core.summary;
     summary.addHeading('FHIR Validation Results', 2);
