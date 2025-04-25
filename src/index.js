@@ -1,13 +1,7 @@
 const core = require('@actions/core');
 const fs = require('fs');
 const path = require('path');
-
-function wildcardMatch(text, pattern) {
-  // escape regex metachars, then replace * → .*
-  const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
-  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$', 'i');
-  return regex.test(text);
-}
+const { shouldSkipIssue } = require('./filter');
 
 async function run() {
   try {
@@ -29,11 +23,11 @@ async function run() {
         };
       });
 
-    // 2) Load and parse
+    // 2) Load and parse bundle
     const text = fs.readFileSync(bundlePath, 'utf8');
     const bundle = JSON.parse(text);
 
-    // 3) Determine minimum severity
+    // 3) Determine minimum severity index
     const sevOrder = ['error', 'warning', 'information'];
     let minIndex;
     switch (include) {
@@ -50,23 +44,23 @@ async function run() {
         throw new Error(`Invalid include value: ${include}`);
     }
 
-    // 4) Collect issues
+    // 4) Collect and filter issues
     const issues = [];
     let hasError = false;
 
-    bundle.entry.forEach(entry => {
+    for (const entry of bundle.entry) {
       const res = entry.resource;
-      // original file path from OperationOutcome extension
       const rawPath = (res.extension || [])
       .find(ext => ext.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-file')
           ?.valueString || '(unknown file)';
-      // just the filename
       const fileName = path.basename(rawPath);
 
-      (res.issue || [])
-      .filter(issue => sevOrder.indexOf(issue.severity) <= minIndex)
-      .forEach(issue => {
-          // location
+      for (const issue of (res.issue || []).filter(i => sevOrder.indexOf(i.severity) <= minIndex)) {
+        if (shouldSkipIssue(issue, filtersArr)) {
+          continue;  // skip known issue
+        }
+
+        // compute location
         const expr = issue.expression;
         const locExt = issue.extension || [];
         const lineExt = locExt.find(e => e.url.endsWith('-line'));
@@ -76,7 +70,7 @@ async function run() {
             : (lineExt && colExt)
                 ? `Line ${lineExt.valueInteger}, Column ${colExt.valueInteger}`
                 : '(unknown location)';
-          // inject zero-width spaces after each dot so GitHub can wrap
+        // inject zero-width spaces after dots for wrapping
           location = location.replace(/\./g, '.\u200B');
 
           // messageId extension
@@ -89,16 +83,6 @@ async function run() {
         const code     = issue.code;
         const details  = issue.details.text;
 
-        // ––– apply filters if any
-        if (filtersArr.length > 0) {
-          const matches = filtersArr.some(f => {
-            const byId   = !f.msgId      || messageId === f.msgId;
-            const byDet  = !f.detPattern || wildcardMatch(details, f.detPattern);
-            return byId && byDet;
-          });
-          if (!matches) return;  // skip this issue
-        }
-
           // annotate in logs
           const annot = `${fileName} | ${severity} | ${code} | ${location} | ${messageId} | ${details}`;
           if      (issue.severity === 'error')   core.error(annot);
@@ -109,8 +93,8 @@ async function run() {
 
           // collect for summary
         issues.push({ fileName, severity, details, location, code, messageId });
-      });
-    });
+      }
+    }
 
     // 5) CI logic
     if      (hasError && include === 'errors')   core.setFailed('❌ FHIR Validation: at least one error found.');
@@ -130,13 +114,13 @@ async function run() {
     const errorCount   = issues.filter(i => i.severity === 'ERROR').length;
     const warningCount = issues.filter(i => i.severity === 'WARNING').length;
     const infoCount    = issues.filter(i => i.severity === 'INFORMATION').length;
-    const generated    = new Date().toISOString();
+    const generatedISO = new Date().toISOString();
 
     summary.addRaw(
-        `<p>${errorCount} ❌ errors, ${warningCount} ⚠️ warnings, ${infoCount} ℹ️ hints. Generated ${generated}</p>\n`
+        `<p>${errorCount} ❌ errors, ${warningCount} ⚠️ warnings, ${infoCount} ℹ️ hints. Generated ${generatedISO}</p>\n`
     );
 
-    // build table: File | Severity | Details | Location | Code | MessageId
+    // table: File | Severity | Details | Location | Code | MessageId
     const table = [
       ['File', 'Severity', 'Details', 'Location', 'Code', 'MessageId'],
       ...issues.map(i => [

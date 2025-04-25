@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build index.js -o dist",
-    "prepare": "npm run build"
+    "build": "ncc build src/index.js -o dist",
+    "prepare": "npm run build",
+    "test": "jest"
   },
   "dependencies": {
     "@actions/core": "^1.11.1"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.38.3"
+    "@vercel/ncc": "^0.38.3",
+    "jest": "^29.7.0"
   }
 }
