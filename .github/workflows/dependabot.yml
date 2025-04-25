@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"               # Pfad zu Deinem package.json
+    schedule:
+      interval: "weekly"         # daily, weekly, monthly
+    # optional: nur dev-Dependencies updaten?
+    # allow:
+    #   - dependency-type: "direct"
+    #   - dependency-type: "indirect"
+
+  # GitHub Actions selbst updaten
+  - package-ecosystem: "github-actions"
+    directory: "/"               # alle workflows
+    schedule:
+      interval: "weekly"
