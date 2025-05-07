@@ -19,9 +19,9 @@ function shouldSkipIssue(ctx, filtersArr) {
 
   return filtersArr.some(f => {
     const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
-    const idMatches      = !f.msgId          || ctx.messageId === f.msgId;
+    const idMatches      = !f.msgId          || ctx.messageId.toLowerCase() === f.msgId.toLowerCase();
     const detailsMatches = !f.detPattern     || wildcardMatch(ctx.details, f.detPattern);
-    const locMatches     = !f.locationPattern|| ctx.location === f.locationPattern;
+    const locMatches     = !f.locationPattern|| loc === f.locationPattern;
     return fileMatches && idMatches && detailsMatches && locMatches;
   });
 }
