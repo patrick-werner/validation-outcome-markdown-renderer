@@ -16,9 +16,11 @@ inputs:
   filters:
     description: >
       Line-separated list of filters in the form
-      `messageId|detailsWildcard`.
+      `filename|messageId|detailsWildcard|location`.
+      - `filename` must match exactly.
       - `messageId` must match exactly.
       - `detailsWildcard` may use `*` as a wildcard.
+      - `location` must match exactly.
       - If one part is empty, it will be ignored.
     required: false
 

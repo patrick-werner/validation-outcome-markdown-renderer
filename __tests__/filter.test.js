@@ -20,75 +20,148 @@ describe('wildcardMatch()', () => {
 
   test('escapes regex metachars', () => {
     expect(wildcardMatch('a.b*c', 'a.b\\*c')).toBe(false);
-    expect(wildcardMatch('a.b*c', 'a.b\\*c')).toBe(false);
+    expect(wildcardMatch('a.b*c', 'a\\.b\\*c')).toBe(false);
   });
 });
 
 describe('shouldSkipIssue()', () => {
-  // Hilfsfunktion, um ein Issue-Objekt zu bauen
-  function makeIssue({ messageId = '', details = '' }) {
-    return {
-      details: { text: details },
-      extension: messageId
-          ? [{ url: 'http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id', valueCode: messageId }]
-          : []
-    };
+  // Hilfsfunktion, um einen Context zu bauen
+  function makeCtx({
+    fileName = 'default.json',
+    messageId = '',
+    details   = '',
+    location  = ''
+  } = {}) {
+    return { fileName, messageId, details, location };
   }
 
   test('no filters => never skip', () => {
-    const issue = makeIssue({ messageId: 'ANY', details: 'something' });
-    expect(shouldSkipIssue(issue, [])).toBe(false);
+    const ctx = makeCtx({ fileName: 'foo.json', messageId: 'X', details: 'y', location: 'L1' });
+    expect(shouldSkipIssue(ctx, [])).toBe(false);
+  });
+
+  test('only fileName filter matches => skip', () => {
+    const ctx = makeCtx({ fileName: 'foo.json' });
+    const filters = [
+      { fileName: 'foo.json', msgId: '', detPattern: '', locationPattern: '' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
+  });
+
+  test('only fileName filter non-match => do not skip', () => {
+    const ctx = makeCtx({ fileName: 'bar.json' });
+    const filters = [
+      { fileName: 'foo.json', msgId: '', detPattern: '', locationPattern: '' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(false);
   });
 
   test('only messageId filter matches => skip', () => {
-    const issue = makeIssue({ messageId: 'FOO', details: 'bar' });
-    const filters = [{ msgId: 'FOO', detPattern: '' }];
-    expect(shouldSkipIssue(issue, filters)).toBe(true);
+    const ctx = makeCtx({ messageId: 'FOO' });
+    const filters = [
+      { fileName: '', msgId: 'FOO', detPattern: '', locationPattern: '' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
   });
 
   test('only messageId filter non-match => do not skip', () => {
-    const issue = makeIssue({ messageId: 'BAR', details: 'bar' });
-    const filters = [{ msgId: 'FOO', detPattern: '' }];
-    expect(shouldSkipIssue(issue, filters)).toBe(false);
+    const ctx = makeCtx({ messageId: 'BAR' });
+    const filters = [
+      { fileName: '', msgId: 'FOO', detPattern: '', locationPattern: '' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(false);
   });
 
   test('only details filter matches => skip', () => {
-    const issue = makeIssue({ messageId: 'X', details: 'contains magic code snippet' });
-    const filters = [{ msgId: '', detPattern: '*magic code*' }];
-    expect(shouldSkipIssue(issue, filters)).toBe(true);
+    const ctx = makeCtx({ details: 'this contains magic snippet' });
+    const filters = [
+      { fileName: '', msgId: '', detPattern: '*magic*', locationPattern: '' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
   });
 
   test('only details filter non-match => do not skip', () => {
-    const issue = makeIssue({ messageId: 'X', details: 'no match here' });
-    const filters = [{ msgId: '', detPattern: '*magic code*' }];
-    expect(shouldSkipIssue(issue, filters)).toBe(false);
-  });
-
-  test('both msgId and details must match => skip only when both match', () => {
-    const issue = makeIssue({ messageId: 'ID1', details: 'foo bar baz' });
-    const filters = [{ msgId: 'ID1', detPattern: '*bar*' }];
-    expect(shouldSkipIssue(issue, filters)).toBe(true);
-
-    const issue2 = makeIssue({ messageId: 'ID2', details: 'foo bar baz' });
-    expect(shouldSkipIssue(issue2, filters)).toBe(false);
-
-    const issue3 = makeIssue({ messageId: 'ID1', details: 'no match' });
-    expect(shouldSkipIssue(issue3, filters)).toBe(false);
-  });
-
-  test('multiple filters => skip if any filter matches', () => {
-    const issue = makeIssue({ messageId: 'A', details: 'yadayada' });
+    const ctx = makeCtx({ details: 'nothing here' });
     const filters = [
-      { msgId: 'X', detPattern: '' },
-      { msgId: '',  detPattern: '*yadayada*' },
-      { msgId: 'Z', detPattern: 'nomatch' }
+      { fileName: '', msgId: '', detPattern: '*magic*', locationPattern: '' }
     ];
-    expect(shouldSkipIssue(issue, filters)).toBe(true);
+    expect(shouldSkipIssue(ctx, filters)).toBe(false);
+  });
 
-    const issue2 = makeIssue({ messageId: 'Z', details: 'something else' });
-    expect(shouldSkipIssue(issue2, filters)).toBe(false);
+  test('only location filter matches => skip', () => {
+    const ctx = makeCtx({ location: 'Line 1, Column 2' });
+    const filters = [
+      { fileName: '', msgId: '', detPattern: '', locationPattern: 'Line 1, Column 2' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
+  });
 
-    const issue3 = makeIssue({ messageId: 'Q', details: 'nothing special' });
-    expect(shouldSkipIssue(issue3, filters)).toBe(false);
+  test('only location filter non-match => do not skip', () => {
+    const ctx = makeCtx({ location: 'Other location' });
+    const filters = [
+      { fileName: '', msgId: '', detPattern: '', locationPattern: 'Line 1, Column 2' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(false);
+  });
+
+  test('all four must match => skip only when all match', () => {
+    const ctx = makeCtx({
+      fileName: 'foo.json',
+      messageId: 'ID1',
+      details: 'foo bar baz',
+      location: 'locA'
+    });
+    const filters = [
+      {
+        fileName:       'foo.json',
+        msgId:          'ID1',
+        detPattern:     '*bar*',
+        locationPattern:'locA'
+      }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
+
+    // Any single mismatch → do not skip
+    expect(shouldSkipIssue(
+        makeCtx({ fileName: 'foo.json', messageId: 'ID1', details: 'foo bar baz', location: 'X' }),
+        filters
+    )).toBe(false);
+    expect(shouldSkipIssue(
+        makeCtx({ fileName: 'foo.json', messageId: 'WRONG', details: 'foo bar baz', location: 'locA' }),
+        filters
+    )).toBe(false);
+    expect(shouldSkipIssue(
+        makeCtx({ fileName: 'foo.json', messageId: 'ID1', details: 'no match', location: 'locA' }),
+        filters
+    )).toBe(false);
+    expect(shouldSkipIssue(
+        makeCtx({ fileName: 'other.json', messageId: 'ID1', details: 'foo bar baz', location: 'locA' }),
+        filters
+    )).toBe(false);
+  });
+
+  test('multiple filters => skip if any filter block matches completely', () => {
+    const ctx = makeCtx({
+      fileName: 'f.json',
+      messageId: 'A',
+      details: 'some details',
+      location: 'loc1'
+    });
+    const filters = [
+      { fileName:'x.json', msgId:'', detPattern:'', locationPattern:'' },
+      { fileName:'',      msgId:'A',detPattern:'*details*', locationPattern:'' },
+      { fileName:'',      msgId:'', detPattern:'', locationPattern:'other' }
+    ];
+    // zweite Regel passt (msgId + details), also skip
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
+
+    // wenn keine Regel komplett passt → do not skip
+    const ctx2 = makeCtx({
+      fileName: 'f.json',
+      messageId: 'Z',
+      details: 'different',
+      location: 'loc1'
+    });
+    expect(shouldSkipIssue(ctx2, filters)).toBe(false);
   });
 });

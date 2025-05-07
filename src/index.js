@@ -10,17 +10,14 @@ async function run() {
     const include = core.getInput('include') || 'errors';
     const rawFilters = core.getInput('filters')     || '';
 
-    // parse filters: line-separated "messageId|detailsWildcard"
+    // parse filters: line-separated "fileName|messageId|detailsWildcard|location"
     const filtersArr = rawFilters
       .split(/\r?\n/)
-      .map(s => s.trim())
+      .map(line => line.trim())
       .filter(Boolean)
       .map(entry => {
-        const [ msgId, detPattern ] = entry.split('|');
-        return {
-          msgId:       msgId?.trim() || '',
-          detPattern:  detPattern?.trim() || ''
-        };
+        const [ fileName, msgId, detPattern, locationPattern ] = entry.split('|').map(p => p?.trim() || '');
+        return { fileName, msgId, detPattern, locationPattern };
       });
 
     // 2) Load and parse bundle
@@ -44,7 +41,7 @@ async function run() {
         throw new Error(`Invalid include value: ${include}`);
     }
 
-    // 4) Collect and filter issues
+    // 4) Collect, filter, annotate issues
     const issues = [];
     let hasError = false;
 
@@ -55,12 +52,11 @@ async function run() {
           ?.valueString || '(unknown file)';
       const fileName = path.basename(rawPath);
 
-      for (const issue of (res.issue || []).filter(i => sevOrder.indexOf(i.severity) <= minIndex)) {
-        if (shouldSkipIssue(issue, filtersArr)) {
-          continue;  // skip known issue
-        }
+      const relevant = (res.issue || [])
+        .filter(i => sevOrder.indexOf(i.severity) <= minIndex);
 
-        // compute location
+      for (const issue of relevant) {
+        // extract location
         const expr = issue.expression;
         const locExt = issue.extension || [];
         const lineExt = locExt.find(e => e.url.endsWith('-line'));
@@ -73,15 +69,22 @@ async function run() {
         // inject zero-width spaces after dots for wrapping
           location = location.replace(/\./g, '.\u200B');
 
-          // messageId extension
+        // extract messageId
           const msgIdExt = locExt.find(e =>
             e.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id'
           );
           const messageId = msgIdExt?.valueCode || '';
-
+        const details   = issue.details.text;
         const severity = issue.severity.toUpperCase();
         const code     = issue.code;
-        const details  = issue.details.text;
+
+        // build context for filtering
+        const ctx = { fileName, messageId, details, location };
+
+        // skip if matches any "known issue" filter
+        if (shouldSkipIssue(ctx, filtersArr)) {
+          continue;
+        }
 
           // annotate in logs
           const annot = `${fileName} | ${severity} | ${code} | ${location} | ${messageId} | ${details}`;
@@ -96,28 +99,31 @@ async function run() {
       }
     }
 
-    // 5) CI logic
-    if      (hasError && include === 'errors')   core.setFailed('❌ FHIR Validation: at least one error found.');
-    else if (hasError && include === 'warnings') core.info('⚠️ FHIR Validation: warnings (and possible errors) reported.');
-    else if (hasError && include === 'all')      core.info('ℹ️ FHIR Validation: all issues reported.');
-    else                                         core.info('✅ FHIR Validation: no issues of the selected severity found.');
+// 5) CI logic: fail if any ERROR remains after filtering
+    const errorsLeft   = issues.filter(i => i.severity === 'ERROR').length;
+    const warningsLeft = issues.filter(i => i.severity === 'WARNING').length;
+    const hintsLeft    = issues.filter(i => i.severity === 'INFORMATION').length;
+
+    if (errorsLeft > 0) {
+      core.setFailed(`❌ FHIR Validation: ${errorsLeft} error(s) found after filtering.`);
+    } else {
+      core.info('✅ FHIR Validation: no errors found after filtering.');
+    }
 
     // 6) GitHub Checks Summary
-    const severityIcon = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
-
+    const icons = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
     const summary = core.summary;
 
     // Heading + counts paragraph
     summary.addHeading('FHIR Validation Results', 2);
 
-    // Insert counts summary
-    const errorCount   = issues.filter(i => i.severity === 'ERROR').length;
-    const warningCount = issues.filter(i => i.severity === 'WARNING').length;
-    const infoCount    = issues.filter(i => i.severity === 'INFORMATION').length;
+    // counts paragraph
     const generatedISO = new Date().toISOString();
-
-    summary.addRaw(
-        `<p>${errorCount} ❌ errors, ${warningCount} ⚠️ warnings, ${infoCount} ℹ️ hints. Generated ${generatedISO}</p>\n`
+    summary.addParagraph(
+      `${errorsLeft} ${icons.ERROR} errors, ` +
+      `${warningsLeft} ${icons.WARNING} warnings, ` +
+      `${hintsLeft} ${icons.INFORMATION} hints. ` +
+      `Generated ${generatedISO}`
     );
 
     // table: File | Severity | Details | Location | Code | MessageId
@@ -125,7 +131,7 @@ async function run() {
       ['File', 'Severity', 'Details', 'Location', 'Code', 'MessageId'],
       ...issues.map(i => [
         i.fileName,
-        `${severityIcon[i.severity] || ''} ${i.severity}`,
+        `${icons[i.severity] || ''} ${i.severity}`,
         i.details.replace(/\|/g, '\\|'),
         i.location,
         i.code,
@@ -133,12 +139,6 @@ async function run() {
       ])
     ];
     summary.addTable(table);
-
-    // final note
-    summary.addRaw(hasError
-      ? '\n❌ At least one error was found.'
-      : '\n✅ No errors were found.'
-    );
 
     await summary.write();
 

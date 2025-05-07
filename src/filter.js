@@ -1,4 +1,3 @@
-// filter.js
 function wildcardMatch(text, pattern) {
   // escape regex metachars, then replace * → .*
   const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
@@ -7,25 +6,20 @@ function wildcardMatch(text, pattern) {
 }
 
 /**
- * Decide whether an issue should be excluded (“known issue”) based on filters.
- * @param {Object} issue         - The OperationOutcome.issue object
- * @param {Array<{msgId:string,detPattern:string}>} filtersArr
+ * Decide whether an issue should be skipped (“known issue”) based on filters.
+ * @param {Object} ctx           - Context: { fileName, location, messageId, details }
+ * @param {Array<{fileName:string,msgId:string,detPattern:string,locationPattern:string}>} filtersArr
  * @returns {boolean}            - true = skip this issue
  */
-function shouldSkipIssue(issue, filtersArr) {
+function shouldSkipIssue(ctx, filtersArr) {
   if (!filtersArr.length) return false;
 
-  // extract messageId from extensions
-  const msgIdExt = (issue.extension || [])
-  .find(e => e.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id');
-  const messageId = msgIdExt?.valueCode || '';
-
-  const details = issue.details?.text || '';
-
   return filtersArr.some(f => {
-    const idMatches    = !f.msgId       || messageId === f.msgId;
-    const detailsMatch = !f.detPattern  || wildcardMatch(details, f.detPattern);
-    return idMatches && detailsMatch;
+    const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
+    const idMatches      = !f.msgId          || ctx.messageId === f.msgId;
+    const detailsMatches = !f.detPattern     || wildcardMatch(ctx.details, f.detPattern);
+    const locMatches     = !f.locationPattern|| ctx.location === f.locationPattern;
+    return fileMatches && idMatches && detailsMatches && locMatches;
   });
 }
 
