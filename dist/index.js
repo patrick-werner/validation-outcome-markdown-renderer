@@ -27709,7 +27709,7 @@ async function run() {
 
     // counts paragraph
     const generatedISO = new Date().toISOString();
-    summary.addParagraph(
+    summary.addRaw(
       `${errorsLeft} ${icons.ERROR} errors, ` +
       `${warningsLeft} ${icons.WARNING} warnings, ` +
       `${hintsLeft} ${icons.INFORMATION} hints. ` +
