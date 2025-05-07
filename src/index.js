@@ -10,21 +10,22 @@ async function run() {
     const include = core.getInput('include') || 'errors';
     const rawFilters = core.getInput('filters')     || '';
 
-    // parse filters: line-separated "fileName|messageId|detailsWildcard|location"
+    // 2) Parse filters: line-separated "fileName|messageId|detailsWildcard|location"
+    //    Strip out full-line and inline comments beginning with "#"
     const filtersArr = rawFilters
       .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(Boolean)
+      .map(line => line.replace(/#.*/, '').trim()) // remove anything after "#" and trim
+      .filter(Boolean)                             // drop empty/comment-only lines
       .map(entry => {
         const [ fileName, msgId, detPattern, locationPattern ] = entry.split('|').map(p => p?.trim() || '');
         return { fileName, msgId, detPattern, locationPattern };
       });
 
-    // 2) Load and parse bundle
+    // 3) Load and parse bundle
     const text = fs.readFileSync(bundlePath, 'utf8');
     const bundle = JSON.parse(text);
 
-    // 3) Determine minimum severity index
+    // 4) Determine minimum severity index
     const sevOrder = ['error', 'warning', 'information'];
     let minIndex;
     switch (include) {
@@ -41,7 +42,7 @@ async function run() {
         throw new Error(`Invalid include value: ${include}`);
     }
 
-    // 4) Collect, filter, annotate issues
+    // 5) Collect, filter & annotate issues
     const issues = [];
     let hasError = false;
 
@@ -69,7 +70,7 @@ async function run() {
         // inject zero-width spaces after dots for wrapping
           location = location.replace(/\./g, '.\u200B');
 
-        // extract messageId
+        // extract messageId & details
           const msgIdExt = locExt.find(e =>
             e.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id'
           );
@@ -99,7 +100,7 @@ async function run() {
       }
     }
 
-// 5) CI logic: fail if any ERROR remains after filtering
+    // 6) CI logic: fail if any ERROR remains after filtering
     const errorsLeft   = issues.filter(i => i.severity === 'ERROR').length;
     const warningsLeft = issues.filter(i => i.severity === 'WARNING').length;
     const hintsLeft    = issues.filter(i => i.severity === 'INFORMATION').length;
@@ -110,7 +111,7 @@ async function run() {
       core.info('✅ FHIR Validation: no errors found after filtering.');
     }
 
-    // 6) GitHub Checks Summary
+    // 7) GitHub Checks Summary
     const icons = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
     const summary = core.summary;
 
