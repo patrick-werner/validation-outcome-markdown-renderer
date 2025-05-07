@@ -25662,6 +25662,9 @@ function wildcardMatch(text, pattern) {
 function shouldSkipIssue(ctx, filtersArr) {
   if (!filtersArr.length) return false;
 
+  // Normalize out any zero‐width spaces before matching
+  const loc = ctx.location.replace(/\u200B/g, '');
+
   return filtersArr.some(f => {
     const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
     const idMatches      = !f.msgId          || ctx.messageId === f.msgId;
