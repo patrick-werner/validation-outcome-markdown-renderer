@@ -1,0 +1,35 @@
+name: Sync major‐version tag
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0       # grab all history so we can push tags
+
+      - name: Compute major version
+        id: major
+        shell: bash
+        run: |
+          # strip leading "v" if present, then grab the first number
+          TAG=${GITHUB_REF#refs/tags/}
+          MAJOR=$(echo "$TAG" | sed -E 's/^v?([0-9]+)\..*$/\1/')
+          echo "MAJOR=v${MAJOR}" >> $GITHUB_ENV
+
+      - name: Create or update v$MAJOR tag
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # force‐update the tag to point at this release commit
+          git tag -f "$MAJOR"
+          git push origin "$MAJOR" --force
