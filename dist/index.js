@@ -27618,34 +27618,34 @@ async function run() {
     const text = fs.readFileSync(bundlePath, 'utf8');
     const bundle = JSON.parse(text);
 
-    // 4) Determine minimum severity based on 'include'
+    // 4) Compute original counts of all issues by severity
+    const origCounts = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
+    for (const e of bundle.entry) {
+      for (const issu of (e.resource.issue || [])) {
+        const sev = issu.severity.toUpperCase();
+        if (origCounts.hasOwnProperty(sev)) origCounts[sev]++;
+      }
+    }
+
+    // 5) Determine minimum severity index for "include"
     const sevOrder = ['error', 'warning', 'information'];
     let minIndex;
     switch (include) {
-      case 'errors':
-        minIndex = sevOrder.indexOf('error');
-        break;
-      case 'warnings':
-        minIndex = sevOrder.indexOf('warning');
-        break;
-      case 'all':
-        minIndex = sevOrder.indexOf('information');
-        break;
+      case 'errors':   minIndex = 0; break;
+      case 'warnings': minIndex = 1; break;
+      case 'all':      minIndex = 2; break;
       default:
         throw new Error(`Invalid include value: ${include}`);
     }
 
-    // 5) Collect issues, apply filters, and annotate
+    // 6) Collect & filter issues
+    const remaining = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
     const issues = [];
-    let hasError = false;
-
-    // Keep counts of all issues before filtering
-    let origErrors = 0, origWarnings = 0, origHints = 0;
 
     for (const entry of bundle.entry) {
       const res = entry.resource;
       const rawPath = (res.extension || [])
-      .find(ext => ext.url === 'http://hl7.org/fhir/StructureDefinition/operationoutcome-file')
+        .find(x => x.url==='http://hl7.org/fhir/StructureDefinition/operationoutcome-file')
           ?.valueString || '(unknown file)';
       const fileName = path.basename(rawPath);
 
@@ -27653,20 +27653,15 @@ async function run() {
         .filter(i => sevOrder.indexOf(i.severity) <= minIndex);
 
       for (const issue of relevant) {
-        // Count total issues before filtering
-        if (issue.severity === 'error') origErrors++;
-        else if (issue.severity === 'warning') origWarnings++;
-        else origHints++;
-
-        // Compute location string
-        const expr = issue.expression;
+        // extract location
         const locExt = issue.extension || [];
-        const lineExt = locExt.find(e => e.url.endsWith('-line'));
-        const colExt  = locExt.find(e => e.url.endsWith('-col'));
+        const expr = issue.expression;
+        const line   = locExt.find(e=>e.url.endsWith('-line'));
+        const col    = locExt.find(e=>e.url.endsWith('-col'));
           let location = expr
             ? expr.join(', ')
-            : (lineExt && colExt)
-                ? `Line ${lineExt.valueInteger}, Column ${colExt.valueInteger}`
+          : (line && col)
+            ? `Line ${line.valueInteger}, Column ${col.valueInteger}`
                 : '(unknown location)';
         // Insert zero-width spaces after dots for line-wrapping
           location = location.replace(/\./g, '.\u200B');
@@ -27677,7 +27672,7 @@ async function run() {
           );
           const messageId = msgIdExt?.valueCode || '';
         const details   = issue.details.text;
-        const severity = issue.severity.toUpperCase();
+        const sevKey    = issue.severity.toUpperCase();
         const code     = issue.code;
 
         // Build context object for filtering
@@ -27688,26 +27683,20 @@ async function run() {
           continue;
         }
 
-        // Annotate in logs
-          const annot = `${fileName} | ${severity} | ${code} | ${location} | ${messageId} | ${details}`;
-          if      (issue.severity === 'error')   core.error(annot);
-          else if (issue.severity === 'warning') core.warning(annot);
+        // log annotation
+        const annot = `${fileName} | ${sevKey} | ${code} | ${location} | ${messageId} | ${details}`;
+        if      (sevKey==='ERROR')       core.error(annot);
+        else if (sevKey==='WARNING')     core.warning(annot);
           else                                   core.info(annot);
 
-        if (issue.severity === 'error') hasError = true;
-
-        // Collect for summary
-        issues.push({ fileName, severity, details, location, code, messageId });
+        remaining[sevKey]++;
+        issues.push({ fileName, severity: sevKey, details, location, code, messageId });
       }
     }
 
-    // 6) Fail the action if any errors remain after filtering
-    const errorsLeft   = issues.filter(i => i.severity === 'ERROR').length;
-    const warningsLeft = issues.filter(i => i.severity === 'WARNING').length;
-    const hintsLeft    = issues.filter(i => i.severity === 'INFORMATION').length;
-
-    if (errorsLeft > 0) {
-      core.setFailed(`❌ FHIR Validation: ${errorsLeft} error(s) found after filtering.`);
+    // 7) CI logic: fail if any ERROR remains
+    if (remaining.ERROR > 0) {
+      core.setFailed(`❌ FHIR Validation: ${remaining.ERROR} error(s) found after filtering.`);
     } else {
       core.info('✅ FHIR Validation: no errors found after filtering.');
     }
@@ -27715,25 +27704,34 @@ async function run() {
     // 7) Generate GitHub Checks Summary
     const icons = { ERROR:'❌', WARNING:'⚠️', INFORMATION:'ℹ️' };
     const summary = core.summary;
+    const ts = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
 
-    // Choose label for filter level (use 'none' when include='all')
-    const filterLabel = include === 'all' ? 'none' : include;
+    summary.addHeading(
+      `FHIR Validation Results (filter: ${include})`, 2
+    );
 
-    // Compute how many were filtered out
-    const filteredErrors   = origErrors   - errorsLeft;
-    const filteredWarnings = origWarnings - warningsLeft;
-    const filteredHints    = origHints    - hintsLeft;
+    // build one line per severity
+    const parts = [];
+    for (const [key, icon] of [['ERROR','❌'],['WARNING','⚠️'],['INFORMATION','ℹ️']]) {
+      const orig   = origCounts[key];
+      const rem    = remaining[key];
+      const filt   = orig - rem;
+      const label  = key.toLowerCase()==='information' ? 'hints' : key.toLowerCase()+'s';
+      if (sevOrder.indexOf(key.toLowerCase()) <= minIndex) {
+        // this severity is included
+        parts.push(
+          `${icon} ${rem} ${label} (${filt} filtered)`
+        );
+      } else {
+        // severity suppressed by include
+        parts.push(
+          `${icon} ${filt} ${label} filtered out`
+        );
+      }
+    }
 
-    // Write summary heading
-    summary.addHeading('FHIR Validation Results', 2);
-
-    // Write compact summary line
-    const generatedISO = new Date().toISOString();
     summary.addRaw(
-      `FHIR Validation Results (filter: ${filterLabel}):\n` +
-      `  ${icons.ERROR} ${errorsLeft} errors (${filteredErrors} filtered), ` +
-      `${icons.WARNING} ${warningsLeft} warnings filtered out, ` +
-      `${icons.INFORMATION} ${hintsLeft} hints filtered out — ${generatedISO}`
+      `  ${parts.join(', ')} — ${ts}`
     );
 
     // Build and write detailed table
@@ -27741,7 +27739,7 @@ async function run() {
       ['File', 'Severity', 'Details', 'Location', 'Code', 'MessageId'],
       ...issues.map(i => [
         i.fileName,
-        `${icons[i.severity] || ''} ${i.severity}`,
+        `${icons[i.severity]} ${i.severity.toLowerCase()}`,
         i.details.replace(/\|/g, '\\|'),
         i.location,
         i.code,
