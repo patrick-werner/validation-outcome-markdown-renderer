@@ -20,9 +20,13 @@ function shouldSkipIssue(ctx, filtersArr) {
   return filtersArr.some(f => {
     const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
     const idMatches      = !f.msgId          || ctx.messageId.toLowerCase() === f.msgId.toLowerCase();
-    const detailsMatches = !f.detPattern     || wildcardMatch(ctx.details, f.detPattern);
-    const locMatches     = !f.locationPattern|| loc === f.locationPattern;
-    return fileMatches && idMatches && detailsMatches && locMatches;
+    const detailsMatches = !f.detPattern      || wildcardMatch(ctx.details, f.detPattern);
+    const locMatches     = !f.locationPattern || wildcardMatch(loc, f.locationPattern);
+    const matches = fileMatches && idMatches && detailsMatches && locMatches;
+    if (matches) {
+      f.matched = true;
+    }
+    return matches;
   });
 }
 

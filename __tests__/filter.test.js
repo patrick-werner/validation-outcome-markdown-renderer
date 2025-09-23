@@ -104,6 +104,22 @@ describe('shouldSkipIssue()', () => {
     expect(shouldSkipIssue(ctx, filters)).toBe(false);
   });
 
+  test('location wildcard pattern matches => skip', () => {
+    const ctx = makeCtx({ location: 'Observation.component[0].code' });
+    const filters = [
+      { fileName: '', msgId: '', detPattern: '', locationPattern: 'Observation.*' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(true);
+  });
+
+  test('location wildcard pattern non-match => do not skip', () => {
+    const ctx = makeCtx({ location: 'Patient.name' });
+    const filters = [
+      { fileName: '', msgId: '', detPattern: '', locationPattern: 'Observation.*' }
+    ];
+    expect(shouldSkipIssue(ctx, filters)).toBe(false);
+  });
+
   test('all four must match => skip only when all match', () => {
     const ctx = makeCtx({
       fileName: 'foo.json',
