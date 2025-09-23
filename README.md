@@ -24,7 +24,32 @@ steps:
 | ------------- | ------ | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bundle-file` | string | No       | `validation.json` | Path to the JSON file containing the OperationOutcome bundle.                                                                                        |
 | `include`     | string | No       | `errors`          | Which severities to report:<br>- `errors`: only `error`<br>- `warnings`: `error` + `warning`<br>- `all`: `error` + `warning` + `information`             |
-| `filters`     | string | No       | _(empty)_         | Line-separated list of skip-filters in the form:<br>`filename | messageId | detailsWildcard | location`<br>- **filename**, **messageId**, **location** must match exactly<br>- **detailsWildcard** may use `*` for wildcard matching<br>- Leave a field empty to ignore it<br>- Lines or inline fragments starting with `#` are ignored |
+| `filters`     | string | No       | _(empty)_         | Line-separated list of skip-filters. See "Filter format" below. |
+
+### Filter format
+
+Each non-empty line represents one skip-rule in the form:
+
+```
+filename | messageId | detailsWildcard | location
+```
+
+Rules
+- Fields are separated by `|` and trimmed.
+- Leave a field empty to ignore it (i.e., match anything for that position).
+- `detailsWildcard` and `location` support `*` as a wildcard (case-insensitive).
+- `filename` and `messageId` are matched exactly (case-insensitive for `messageId`).
+- Lines and inline fragments starting with `#` are treated as comments and ignored.
+
+Examples
+
+```
+# Skip a specific messageId with a details pattern in a single file and location
+Observation-Linksatrialer-Druck.json | VALIDATION_VAL_PROFILE_MINIMUM | *magic LOINC code* | Observation.code
+
+# Skip any UNKNOWN_CODESYSTEM at a given location regardless of file/details
+| UNKNOWN_CODESYSTEM | | Observation.component
+```
 
 ## Examples
 
@@ -59,6 +84,7 @@ Skip all "magic LOINC code" errors in a specific file:
 ## Output
 
 - **Annotations** in the console via `core.error()`, `core.warning()`, `core.info()`.
+- **Filter diagnostics**: any defined filters that never matched are listed in the logs and in the summary (under “Unused filters”) to highlight stale rules.
 - **Summary** in the Checks tab:
 
   ```

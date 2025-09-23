@@ -18,8 +18,9 @@ async function run() {
       .filter(Boolean)
       .map(entry => {
         const [ fileName, msgId, detPattern, locationPattern ] = entry.split('|').map(p => p?.trim() || '');
-        return { fileName, msgId, detPattern, locationPattern };
+        return { fileName, msgId, detPattern, locationPattern, raw: entry };
       });
+    let unusedFilters = [];
 
     // 3) Load and parse the OperationOutcome bundle
     const text = fs.readFileSync(bundlePath, 'utf8');
@@ -101,6 +102,25 @@ async function run() {
       }
     }
 
+    if (filtersArr.length) {
+      unusedFilters = filtersArr.filter(f => !f.matched);
+      if (unusedFilters.length) {
+        core.info(`${unusedFilters.length} filter(s) defined but not triggered:`);
+        for (const f of unusedFilters) {
+          if (f.raw) {
+            core.info(`  - ${f.raw}`);
+          } else {
+            const parts = [];
+            if (f.fileName) parts.push(`file=${f.fileName}`);
+            if (f.msgId) parts.push(`msgId=${f.msgId}`);
+            if (f.detPattern) parts.push(`details=${f.detPattern}`);
+            if (f.locationPattern) parts.push(`location=${f.locationPattern}`);
+            core.info(`  - ${parts.join(', ') || '(empty filter)'}`);
+          }
+        }
+      }
+    }
+
     // 7) CI logic: fail if any ERROR remains
     if (remaining.ERROR > 0) {
       core.setFailed(`❌ FHIR Validation: ${remaining.ERROR} error(s) found after filtering.`);
@@ -116,6 +136,23 @@ async function run() {
     summary.addHeading(
       `FHIR Validation Results (filter: ${include})`, 2
     );
+
+    if (unusedFilters.length) {
+      summary.addHeading('Unused filters (not triggered)', 3);
+      summary.addList(
+        unusedFilters.map(f => (
+          f.raw
+            ? f.raw
+            : [
+                f.fileName && `file=${f.fileName}`,
+                f.msgId && `msgId=${f.msgId}`,
+                f.detPattern && `details=${f.detPattern}`,
+                f.locationPattern && `location=${f.locationPattern}`
+              ].filter(Boolean).join(', ') || '(empty filter)'
+        ))
+      );
+      summary.addBreak();
+    }
 
     // build one line per severity
     const parts = [];
