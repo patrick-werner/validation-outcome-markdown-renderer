@@ -27789,14 +27789,14 @@ async function run() {
     ];
     summary.addTable(table);
 
-    await summary.write();
-
-    // 8) Write summary as markdown file for PR comments
+    // 8) Write summary as markdown file for PR comments (before write() clears the buffer)
     const prSummaryPath = core.getInput('pr-summary-path');
     const md = summary.stringify();
     const prContent = `<!-- fhir-validation-summary -->\n${md}\n<!-- fhir-validation-summary -->`;
     fs.writeFileSync(prSummaryPath, prContent, 'utf8');
     core.info(`✅ Wrote PR summary markdown to ${prSummaryPath}`);
+
+    await summary.write();
 
   } catch (err) {
     core.setFailed(`Action failed: ${err.message}`);
