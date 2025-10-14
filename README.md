@@ -20,11 +20,12 @@ steps:
 
 ## Inputs
 
-| Input         | Type   | Required | Default           | Description                                                             |
-| ------------- | ------ | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bundle-file` | string | No       | `validation.json` | Path to the JSON file containing the OperationOutcome bundle.                                                                                        |
-| `include`     | string | No       | `errors`          | Which severities to report:<br>- `errors`: only `error`<br>- `warnings`: `error` + `warning`<br>- `all`: `error` + `warning` + `information`             |
-| `filters`     | string | No       | _(empty)_         | Line-separated list of skip-filters. See "Filter format" below. |
+| Input            | Type   | Required | Default           | Description                                                             |
+| ---------------- | ------ | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bundle-file`    | string | No       | `validation.json` | Path to the JSON file containing the OperationOutcome bundle.                                                                                        |
+| `include`        | string | No       | `errors`          | Which severities to report:<br>- `errors`: only `error`<br>- `warnings`: `error` + `warning`<br>- `all`: `error` + `warning` + `information`             |
+| `filters`        | string | No       | _(empty)_         | Line-separated list of skip-filters. See "Filter format" below. |
+| `pr-summary-path`| string | No       | `pr-summary.md`   | Path to write the validation summary as a markdown file for PR comments. |
 
 ### Filter format
 

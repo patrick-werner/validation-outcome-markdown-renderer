@@ -194,6 +194,13 @@ async function run() {
 
     await summary.write();
 
+    // 8) Write summary as markdown file for PR comments
+    const prSummaryPath = core.getInput('pr-summary-path') || 'pr-summary.md';
+    const md = summary.stringify();
+    const prContent = `<!-- fhir-validation-summary -->\n${md}\n<!-- fhir-validation-summary -->`;
+    fs.writeFileSync(prSummaryPath, prContent, 'utf8');
+    core.info(`✅ Wrote PR summary markdown to ${prSummaryPath}`);
+
   } catch (err) {
     core.setFailed(`Action failed: ${err.message}`);
   }
