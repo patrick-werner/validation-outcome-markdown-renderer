@@ -195,7 +195,7 @@ async function run() {
     await summary.write();
 
     // 8) Write summary as markdown file for PR comments
-    const prSummaryPath = core.getInput('pr-summary-path') || 'pr-summary.md';
+    const prSummaryPath = core.getInput('pr-summary-path');
     const md = summary.stringify();
     const prContent = `<!-- fhir-validation-summary -->\n${md}\n<!-- fhir-validation-summary -->`;
     fs.writeFileSync(prSummaryPath, prContent, 'utf8');
