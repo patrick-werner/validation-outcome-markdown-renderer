@@ -23,6 +23,10 @@ inputs:
       - `location` must match exactly.
       - If one part is empty, it will be ignored.
     required: false
+  pr-summary-path:
+    description: "Path to write the PR summary markdown for PR comments"
+    required: false
+    default: "pr-summary.md"
 
 runs:
   using: "node16"
