@@ -22,13 +22,24 @@ async function run() {
       });
     let unusedFilters = [];
 
-    // 3) Load and parse the OperationOutcome bundle
+    // 3) Load and parse the OperationOutcome bundle or single OperationOutcome
     const text = fs.readFileSync(bundlePath, 'utf8');
-    const bundle = JSON.parse(text);
+    const data = JSON.parse(text);
+
+    // Handle both Bundle and single OperationOutcome formats
+    let entries = [];
+    if (data.resourceType === 'Bundle' && data.entry) {
+      entries = data.entry;
+    } else if (data.resourceType === 'OperationOutcome') {
+      // Wrap single OperationOutcome in entry format
+      entries = [{ resource: data }];
+    } else {
+      throw new Error(`Unsupported resource type: ${data.resourceType}`);
+    }
 
     // 4) Compute original counts of all issues by severity
     const origCounts = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
-    for (const e of bundle.entry) {
+    for (const e of entries) {
       for (const issu of (e.resource.issue || [])) {
         const sev = issu.severity.toUpperCase();
         if (origCounts.hasOwnProperty(sev)) origCounts[sev]++;
@@ -50,7 +61,7 @@ async function run() {
     const remaining = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
     const issues = [];
 
-    for (const entry of bundle.entry) {
+    for (const entry of entries) {
       const res = entry.resource;
       const rawPath = (res.extension || [])
         .find(x => x.url==='http://hl7.org/fhir/StructureDefinition/operationoutcome-file')
@@ -206,4 +217,10 @@ async function run() {
   }
 }
 
-run();
+// Export for testing
+module.exports = run;
+
+// Run if this is the main module
+if (require.main === module) {
+  run();
+}
