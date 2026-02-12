@@ -77,13 +77,11 @@ async function run() {
         const expr = issue.expression;
         const line   = locExt.find(e=>e.url.endsWith('-line'));
         const col    = locExt.find(e=>e.url.endsWith('-col'));
-          let location = expr
+          const location = expr
             ? expr.join(', ')
           : (line && col)
             ? `Line ${line.valueInteger}, Column ${col.valueInteger}`
                 : '(unknown location)';
-        // Insert zero-width spaces after dots for line-wrapping
-          location = location.replace(/\./g, '.\u200B');
 
         // Extract messageId and details
           const msgIdExt = locExt.find(e =>
@@ -196,7 +194,7 @@ async function run() {
         i.fileName,
         `${icons[i.severity]} ${i.severity.toLowerCase()}`,
         i.details.replace(/\|/g, '\\|'),
-        i.location,
+        i.location.replace(/\./g, '.\u200B'), // Insert zero-width spaces for better line-wrapping in table
         i.code,
         i.messageId
       ])
