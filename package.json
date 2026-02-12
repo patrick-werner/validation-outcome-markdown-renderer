@@ -1,12 +1,30 @@
 {
   "name": "fhir-validation-action",
   "version": "1.0.0",
+  "description": "GitHub Action for FHIR validation results rendering and filtering",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "build": "ncc build src/index.js -o dist",
     "prepare": "npm run build",
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patrick-werner/validation-outcome-markdown-renderer.git"
+  },
+  "keywords": [
+    "github-actions",
+    "fhir",
+    "validation",
+    "healthcare"
+  ],
+  "author": "Patrick Werner",
+  "license": "Apache-2.0",
   "dependencies": {
     "@actions/core": "^1.11.1"
   },

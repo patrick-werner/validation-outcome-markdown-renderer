@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output - DO NOT ignore dist/ for GitHub Actions!
+# dist/ is needed for the action to work
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Environment
+.env
+.env.local

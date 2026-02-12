@@ -25662,14 +25662,11 @@ function wildcardMatch(text, pattern) {
 function shouldSkipIssue(ctx, filtersArr) {
   if (!filtersArr.length) return false;
 
-  // Normalize out any zero‐width spaces before matching
-  const loc = ctx.location.replace(/\u200B/g, '');
-
   return filtersArr.some(f => {
     const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
     const idMatches      = !f.msgId          || ctx.messageId.toLowerCase() === f.msgId.toLowerCase();
     const detailsMatches = !f.detPattern      || wildcardMatch(ctx.details, f.detPattern);
-    const locMatches     = !f.locationPattern || wildcardMatch(loc, f.locationPattern);
+    const locMatches     = !f.locationPattern || wildcardMatch(ctx.location, f.locationPattern);
     const matches = fileMatches && idMatches && detailsMatches && locMatches;
     if (matches) {
       f.matched = true;
@@ -25765,13 +25762,11 @@ async function run() {
         const expr = issue.expression;
         const line   = locExt.find(e=>e.url.endsWith('-line'));
         const col    = locExt.find(e=>e.url.endsWith('-col'));
-          let location = expr
+          const location = expr
             ? expr.join(', ')
           : (line && col)
             ? `Line ${line.valueInteger}, Column ${col.valueInteger}`
                 : '(unknown location)';
-        // Insert zero-width spaces after dots for line-wrapping
-          location = location.replace(/\./g, '.\u200B');
 
         // Extract messageId and details
           const msgIdExt = locExt.find(e =>
@@ -25884,7 +25879,7 @@ async function run() {
         i.fileName,
         `${icons[i.severity]} ${i.severity.toLowerCase()}`,
         i.details.replace(/\|/g, '\\|'),
-        i.location,
+        i.location.replace(/\./g, '.\u200B'), // Insert zero-width spaces for better line-wrapping in table
         i.code,
         i.messageId
       ])
