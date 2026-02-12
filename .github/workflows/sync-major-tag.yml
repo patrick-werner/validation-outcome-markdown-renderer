@@ -10,6 +10,8 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Skip pre-releases - only sync major tag for stable releases
+    if: ${{ !github.event.release.prerelease }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v5
