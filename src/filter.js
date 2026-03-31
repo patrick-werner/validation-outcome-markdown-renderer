@@ -1,7 +1,7 @@
 function wildcardMatch(text, pattern) {
-  // escape regex metachars, then replace * → .*
+  // escape regex metachars, then replace * → [\s\S]* so wildcards match across line breaks
   const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
-  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$', 'i');
+  const regex = new RegExp('^' + escaped.replace(/\*/g, '[\\s\\S]*') + '$', 'i');
   return regex.test(text);
 }
 

@@ -18,6 +18,11 @@ describe('wildcardMatch()', () => {
     expect(wildcardMatch('HelloWorld', '*world')).toBe(true);
   });
 
+  test('matches across line breaks', () => {
+    const details = 'Error from tx: Invalid request: foo\r\nInformation: X-Request-Id: 123';
+    expect(wildcardMatch(details, '*Error from tx: Invalid request:*')).toBe(true);
+  });
+
   test('escapes regex metachars', () => {
     expect(wildcardMatch('a.b*c', 'a.b\\*c')).toBe(false);
     expect(wildcardMatch('a.b*c', 'a\\.b\\*c')).toBe(false);
