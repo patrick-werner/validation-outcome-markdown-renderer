@@ -11,7 +11,12 @@ annotations and a summary table, with filters for known issues.
   JSON structure, so `index.js` never has to know which format it got.
 - `src/filter.js` — `filename|messageId|detailsWildcard|location` skip-rules.
   Filters are mutated with `matched = true` when they fire; unmatched ones are
-  reported as "unused filters".
+  reported as "unused filters". Locations are normalized on *both* sides before
+  matching: users copy them out of the rendered summary, so a rule can pick up
+  rendering artefacts. Never let a display concern reach the matched string —
+  that was #20, where invisible zero-width spaces made filters fail with no
+  visible cause. The table uses `<wbr>`, which is markup rather than a character
+  and so never lands in the clipboard.
 - `dist/index.js` — **committed build output**, this is what GitHub actually runs.
 
 ## Working on this

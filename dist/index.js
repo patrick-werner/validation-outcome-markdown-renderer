@@ -25887,6 +25887,19 @@ module.exports = {
 /***/ 8067:
 /***/ ((module) => {
 
+// Locations are rendered with break opportunities so they wrap in the summary
+// table, and users copy them straight out of that output into a filter rule.
+// Depending on where they copy from, the rule can pick up artefacts of that
+// rendering: a `<wbr>` when copied from the markdown source, or an invisible
+// zero-width space when copied from the console of an older release. Normalize
+// both sides before comparing, otherwise such a rule silently never matches and
+// the user cannot see why (#20).
+const RENDER_ARTEFACTS = /<wbr\s*\/?>|[​-‍﻿]/gi;
+
+function normalizeLocation(text) {
+  return text.replace(RENDER_ARTEFACTS, '');
+}
+
 function wildcardMatch(text, pattern) {
   // escape regex metachars, then replace * → [\s\S]* so wildcards match across line breaks
   const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
@@ -25907,7 +25920,7 @@ function shouldSkipIssue(ctx, filtersArr) {
     const fileMatches    = !f.fileName       || ctx.fileName === f.fileName;
     const idMatches      = !f.msgId          || ctx.messageId.toLowerCase() === f.msgId.toLowerCase();
     const detailsMatches = !f.detPattern      || wildcardMatch(ctx.details, f.detPattern);
-    const locMatches     = !f.locationPattern || wildcardMatch(ctx.location, f.locationPattern);
+    const locMatches     = !f.locationPattern || wildcardMatch(normalizeLocation(ctx.location), normalizeLocation(f.locationPattern));
     const matches = fileMatches && idMatches && detailsMatches && locMatches;
     if (matches) {
       f.matched = true;
@@ -25916,7 +25929,7 @@ function shouldSkipIssue(ctx, filtersArr) {
   });
 }
 
-module.exports = { wildcardMatch, shouldSkipIssue };
+module.exports = { wildcardMatch, shouldSkipIssue, normalizeLocation };
 
 
 /***/ }),
@@ -25929,6 +25942,17 @@ const fs = __nccwpck_require__(9896);
 const path = __nccwpck_require__(6928);
 const { shouldSkipIssue } = __nccwpck_require__(8067);
 const { parseValidationOutcome } = __nccwpck_require__(3046);
+
+/**
+ * Give the summary table a chance to wrap long locations.
+ *
+ * `<wbr>` is a break opportunity that is not a character: unlike the zero-width
+ * space this used to insert, it does not travel along when the location is copied
+ * out of the rendered table into a filter rule (#20).
+ */
+function formatLocationForTable(location) {
+  return location.replace(/\./g, '.<wbr>');
+}
 
 async function run() {
   try {
@@ -26121,7 +26145,7 @@ async function run() {
         i.fileName,
         `${icons[i.severity]} ${i.severity.toLowerCase()}`,
         i.details.replace(/\|/g, '\\|'),
-        i.location.replace(/\./g, '.\u200B'), // Insert zero-width spaces for better line-wrapping in table
+        formatLocationForTable(i.location),
         i.code,
         i.messageId
       ])
@@ -26142,8 +26166,9 @@ async function run() {
   }
 }
 
-// Export for testing
+// Export for testing (property, so `require('./index')` stays callable)
 module.exports = run;
+module.exports.formatLocationForTable = formatLocationForTable;
 
 // Run if this is the main module
 if (require.main === require.cache[eval('__filename')]) {

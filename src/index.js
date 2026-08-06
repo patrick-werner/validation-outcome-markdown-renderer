@@ -4,6 +4,17 @@ const path = require('path');
 const { shouldSkipIssue } = require('./filter');
 const { parseValidationOutcome } = require('./parse');
 
+/**
+ * Give the summary table a chance to wrap long locations.
+ *
+ * `<wbr>` is a break opportunity that is not a character: unlike the zero-width
+ * space this used to insert, it does not travel along when the location is copied
+ * out of the rendered table into a filter rule (#20).
+ */
+function formatLocationForTable(location) {
+  return location.replace(/\./g, '.<wbr>');
+}
+
 async function run() {
   try {
     // 1) Read inputs
@@ -195,7 +206,7 @@ async function run() {
         i.fileName,
         `${icons[i.severity]} ${i.severity.toLowerCase()}`,
         i.details.replace(/\|/g, '\\|'),
-        i.location.replace(/\./g, '.\u200B'), // Insert zero-width spaces for better line-wrapping in table
+        formatLocationForTable(i.location),
         i.code,
         i.messageId
       ])
@@ -216,8 +227,9 @@ async function run() {
   }
 }
 
-// Export for testing
+// Export for testing (property, so `require('./index')` stays callable)
 module.exports = run;
+module.exports.formatLocationForTable = formatLocationForTable;
 
 // Run if this is the main module
 if (require.main === module) {
