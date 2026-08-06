@@ -2,6 +2,7 @@ const core = require('@actions/core');
 const fs = require('fs');
 const path = require('path');
 const { shouldSkipIssue } = require('./filter');
+const { parseValidationOutcome } = require('./parse');
 
 async function run() {
   try {
@@ -22,9 +23,9 @@ async function run() {
       });
     let unusedFilters = [];
 
-    // 3) Load and parse the OperationOutcome bundle or single OperationOutcome
+    // 3) Load and parse the OperationOutcome bundle or single OperationOutcome (JSON or XML)
     const text = fs.readFileSync(bundlePath, 'utf8');
-    const data = JSON.parse(text);
+    const data = parseValidationOutcome(text, bundlePath);
 
     // Handle both Bundle and single OperationOutcome formats
     let entries = [];

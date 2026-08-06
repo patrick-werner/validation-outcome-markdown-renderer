@@ -1,0 +1,57 @@
+# CLAUDE.md
+
+GitHub Action that renders Java FHIR Validator `OperationOutcome` output as check
+annotations and a summary table, with filters for known issues.
+
+## Layout
+
+- `src/index.js` — the action: reads inputs, filters issues, writes the Checks summary
+  and the PR-comment markdown. Fails the job if any `ERROR` remains after filtering.
+- `src/parse.js` — reads the outcome file. JSON and XML both produce the *same* plain
+  JSON structure, so `index.js` never has to know which format it got.
+- `src/filter.js` — `filename|messageId|detailsWildcard|location` skip-rules.
+  Filters are mutated with `matched = true` when they fire; unmatched ones are
+  reported as "unused filters".
+- `dist/index.js` — **committed build output**, this is what GitHub actually runs.
+
+## Working on this
+
+```bash
+npm test           # jest
+npm run build      # ncc → dist/index.js
+```
+
+- **Always `npm run build` after changing `src/`.** A source change without a rebuilt
+  `dist/` has no effect on the released action. CI also rebuilds and commits `dist/`,
+  but don't rely on it.
+- Run the action locally by passing inputs as env vars. Note the dashes — zsh needs
+  `env`, since `INPUT_BUNDLE-FILE=…` is not a valid inline assignment:
+
+  ```bash
+  env "INPUT_BUNDLE-FILE=validation.json" INPUT_INCLUDE=all \
+      "INPUT_PR-SUMMARY-PATH=/tmp/pr.md" "GITHUB_STEP_SUMMARY=/tmp/sum.md" \
+      node src/index.js
+  ```
+
+- Inputs are a public contract — keep `action.yml`, the README table and the code in
+  sync, and keep changes backwards compatible for existing workflows.
+
+## FHIR XML → JSON mapping (`src/parse.js`)
+
+The XML path exists because the IG Publisher writes `output/qa.xml`. It reproduces the
+official FHIR XML↔JSON mapping for the parts this action reads:
+
+- `<severity value="error"/>` → `severity: "error"` (the `value` attribute *is* the
+  primitive value).
+- `value…Integer/Decimal/PositiveInt/UnsignedInt` attributes are converted to numbers,
+  `valueBoolean` to a boolean; everything else stays a string.
+- Elements that are arrays in JSON (`entry`, `issue`, `extension`, `expression`, …)
+  must be forced to arrays even when they occur once — see `ARRAY_ELEMENTS`. Add to
+  that set if a newly-read field can repeat.
+- `<resource><OperationOutcome>…` → `resource: { resourceType: "OperationOutcome", … }`.
+  A single upper-case key means a resource type, since FHIR element names are
+  lowerCamelCase.
+- fast-xml-parser is lenient, so `XMLValidator` runs first — otherwise malformed XML
+  parses into silently wrong data instead of failing.
+
+Format detection is by content (leading `<`), not by file extension.
