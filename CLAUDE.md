@@ -17,13 +17,16 @@ annotations and a summary table, with filters for known issues.
 ## Working on this
 
 ```bash
+npm ci             # install from the lockfile
 npm test           # jest
 npm run build      # ncc → dist/index.js
 ```
 
-- **Always `npm run build` after changing `src/`.** A source change without a rebuilt
-  `dist/` has no effect on the released action. CI also rebuilds and commits `dist/`,
-  but don't rely on it.
+- **Always `npm run build` after changing `src/`, and commit `dist/`.** A source change
+  without a rebuilt `dist/` has no effect on the released action. CI does *not* build
+  `dist/` for you — it rebuilds and fails if the committed output differs from `src/`.
+  The ncc build is reproducible, so that check is meaningful only when you install with
+  `npm ci`; `npm install` may resolve different versions and produce a differing bundle.
 - Run the action locally by passing inputs as env vars. Note the dashes — zsh needs
   `env`, since `INPUT_BUNDLE-FILE=…` is not a valid inline assignment:
 

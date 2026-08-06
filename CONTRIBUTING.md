@@ -94,17 +94,17 @@ You can test the action locally using [act](https://github.com/nektos/act) or by
 
 ### 6. Commit Your Changes
 
-The CI workflow will automatically:
-- Run tests
-- Build `dist/index.js`
-- Commit the build output
-
-But it's good practice to build locally first:
+**You must commit `dist/` yourself.** CI does not build it for you — it rebuilds and
+verifies that the committed `dist/` matches `src/`, and fails if it is stale:
 
 ```bash
+npm ci && npm run build
 git add src/ __tests__/ dist/
 git commit -m "feat: your feature description"
 ```
+
+If the "Verify dist/ is up to date" check fails, run those two commands and commit
+the result. Use `npm ci` rather than `npm install` so the build matches the lockfile.
 
 ## Code Style
 

@@ -1,16 +1,22 @@
-name: Build and Commit dist
+name: CI
 
-# make sure GITHUB_TOKEN can push
+# dist/ is the artifact GitHub actually runs, so it is committed to the repo.
+# CI verifies that it matches src/ instead of rebuilding and committing it:
+# a stale dist/ fails the check rather than being silently overwritten.
 permissions:
-  contents: write
+  contents: read
 
 on:
-  # Run on every push to any branch (or limit to e.g. 'main' if you prefer)
   push:
     branches:
-      - '**'
-  # Allow manual invocation
+      - main
+  pull_request:
   workflow_dispatch:
+
+# a new push supersedes an in-flight run for the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -22,10 +28,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '18'
+          node-version: '20'   # must match runs.using in action.yml
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci   # install from the lockfile, never resolve fresh versions
 
       - name: Run tests
         run: npm test
@@ -33,12 +40,11 @@ jobs:
       - name: Build with ncc
         run: npm run build
 
-      - name: Commit built files and lockfile
-        uses: EndBug/add-and-commit@v9
-        with:
-          author_name: github-actions
-          author_email: github-actions@github.com
-          message: 'chore: build dist and lockfile [skip ci]'
-          add: |
-            dist/
-            package-lock.json
+      - name: Verify dist/ is up to date
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/ does not match src/. Run 'npm ci && npm run build' and commit dist/."
+            git diff --stat -- dist/
+            exit 1
+          fi
+          echo "dist/ is up to date"
