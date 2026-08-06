@@ -19,8 +19,10 @@ Thank you for your interest in contributing! 🎉
 
 2. **Install dependencies**
    ```bash
-   npm install
+   npm ci
    ```
+   Use `npm ci`, not `npm install`: the `dist/` check compares your build against the
+   committed bundle, which is only meaningful when both resolve the same dependencies.
 
 3. **Run tests**
    ```bash
@@ -38,12 +40,15 @@ Thank you for your interest in contributing! 🎉
 ```
 ├── src/
 │   ├── index.js          # Main action logic
+│   ├── parse.js          # Reads the outcome file (JSON or XML)
 │   └── filter.js         # Filter matching logic
 ├── __tests__/
-│   └── filter.test.js    # Jest tests
+│   ├── filter.test.js    # Jest tests
+│   └── parse.test.js
 ├── dist/
 │   └── index.js          # Compiled bundle (committed to repo)
 ├── action.yml            # Action metadata
+├── CHANGELOG.md
 └── package.json
 ```
 
@@ -65,6 +70,7 @@ test('your new feature', () => {
 
 Edit files in `src/`:
 - **`src/index.js`**: Main action logic, GitHub annotations, summary generation
+- **`src/parse.js`**: Reads the OperationOutcome file; JSON and XML produce the same structure
 - **`src/filter.js`**: Filter matching and wildcard logic
 
 ### 3. Run Tests
@@ -147,7 +153,10 @@ jobs:
 Consumers pin either an exact version (`@v1.4.0`) or the floating major tag (`@v1`),
 so a release is what actually ships code to them.
 
-1. Bump `version` in `package.json` and refresh the lockfile:
+1. Move the release's section in [CHANGELOG.md](CHANGELOG.md) from `unreleased` to
+   today's date, and add its compare link at the bottom of the file.
+
+2. Bump `version` in `package.json` and refresh the lockfile:
 
    ```bash
    npm version 1.4.0 --no-git-tag-version
@@ -155,7 +164,7 @@ so a release is what actually ships code to them.
    git commit -am "chore: release 1.4.0"
    ```
 
-2. Tag it **with a leading `v`** and push:
+3. Tag it **with a leading `v`** and push:
 
    ```bash
    git tag v1.4.0
@@ -166,10 +175,11 @@ so a release is what actually ships code to them.
    means `@v1.3.0` does not resolve for anyone who follows the usual Action
    convention. Use `vX.Y.Z` from now on so pinning behaves predictably.
 
-3. Publish a GitHub Release for that tag, letting GitHub write the notes:
+4. Publish a GitHub Release for that tag. Point the notes at the changelog entry
+   rather than relying on the generated commit list, which is mostly dependency bumps:
 
    ```bash
-   gh release create v1.4.0 --generate-notes
+   gh release create v1.4.0 --notes-file <(sed -n '/## \[1.4.0\]/,/^## \[1.3.0\]/p' CHANGELOG.md | sed '$d')
    ```
 
 CI enforces the parts that are easy to get wrong:

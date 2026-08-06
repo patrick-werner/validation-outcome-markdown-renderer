@@ -43,8 +43,11 @@ npm run build      # ncc → dist/index.js
 
 - Inputs are a public contract — keep `action.yml`, the README table and the code in
   sync, and keep changes backwards compatible for existing workflows.
-- Releasing is a documented sequence (bump `package.json` → tag `vX.Y.Z` → publish the
-  release, which moves `v1`); see "Releasing" in `CONTRIBUTING.md` before tagging.
+- Releasing is a documented sequence (changelog entry → bump `package.json` → tag
+  `vX.Y.Z` → publish the release, which moves `v1`); see "Releasing" in
+  `CONTRIBUTING.md` before tagging.
+- User-visible changes get a `CHANGELOG.md` entry under the pending version, in terms
+  of what a workflow author notices — not a restatement of the commit subject.
 
 ## FHIR XML → JSON mapping (`src/parse.js`)
 
