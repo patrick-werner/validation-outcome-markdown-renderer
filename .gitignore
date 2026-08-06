@@ -20,6 +20,10 @@ npm-debug.log*
 # Testing
 coverage/
 
+# Local validator output used for manual runs (can be tens of MB)
+/validation.json
+/qa.xml
+
 # Environment
 .env
 .env.local

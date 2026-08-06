@@ -142,6 +142,47 @@ jobs:
           include: all
 ```
 
+## Releasing (maintainers)
+
+Consumers pin either an exact version (`@v1.4.0`) or the floating major tag (`@v1`),
+so a release is what actually ships code to them.
+
+1. Bump `version` in `package.json` and refresh the lockfile:
+
+   ```bash
+   npm version 1.4.0 --no-git-tag-version
+   npm ci && npm run build   # dist/ must match src/ at the released commit
+   git commit -am "chore: release 1.4.0"
+   ```
+
+2. Tag it **with a leading `v`** and push:
+
+   ```bash
+   git tag v1.4.0
+   git push origin main v1.4.0
+   ```
+
+   Older tags in this repo are inconsistent (`1.3.0` and `v1.2.2` both exist), which
+   means `@v1.3.0` does not resolve for anyone who follows the usual Action
+   convention. Use `vX.Y.Z` from now on so pinning behaves predictably.
+
+3. Publish a GitHub Release for that tag, letting GitHub write the notes:
+
+   ```bash
+   gh release create v1.4.0 --generate-notes
+   ```
+
+CI enforces the parts that are easy to get wrong:
+
+- pushing the tag runs the tests and fails if `dist/` is stale or if the tag does not
+  match `package.json`;
+- publishing the release re-runs those checks before the `v1` tag is moved, and
+  refuses to move it to a commit that is not a descendant of where it points now
+  (so a backport released after a newer version cannot silently downgrade `@v1`).
+
+Pre-releases (`v1.4.0-beta.1`, marked as pre-release on GitHub) are verified but never
+move the major tag.
+
 ## Questions?
 
 Feel free to open an issue for any questions or discussions!

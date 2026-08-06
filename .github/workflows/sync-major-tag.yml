@@ -61,6 +61,24 @@ jobs:
           MAJOR=$(echo "$TAG" | sed -E 's/^v?([0-9]+)\..*$/\1/')
           echo "MAJOR=v${MAJOR}" >> $GITHUB_ENV
 
+      - name: Refuse to move $MAJOR backwards
+        shell: bash
+        run: |
+          # A backport released after a newer version (1.2.3 published after 1.3.0)
+          # sits on a side branch, not on top of what $MAJOR already points at.
+          # Moving the tag there would silently downgrade every @$MAJOR consumer.
+          CURRENT=$(git rev-parse -q --verify "refs/tags/${MAJOR}^{commit}" || true)
+          if [ -z "$CURRENT" ]; then
+            echo "${MAJOR} does not exist yet — nothing to compare against"
+          elif [ "$CURRENT" = "$GITHUB_SHA" ]; then
+            echo "${MAJOR} already points at this commit"
+          elif git merge-base --is-ancestor "$CURRENT" "$GITHUB_SHA"; then
+            echo "moving ${MAJOR} forward: ${CURRENT} -> ${GITHUB_SHA}"
+          else
+            echo "::error::${GITHUB_SHA} is not a descendant of ${MAJOR} (${CURRENT}); refusing to move the tag backwards."
+            exit 1
+          fi
+
       - name: Create or update v$MAJOR tag
         shell: bash
         run: |
