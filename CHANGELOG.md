@@ -8,7 +8,7 @@ Entries before 1.4.0 were reconstructed from the git history and the GitHub rele
 notes, so they cover the user-visible changes rather than every commit. Dependency
 bumps are omitted throughout.
 
-## [1.4.0] - unreleased
+## [1.4.0] - 2026-08-07
 
 ### Added
 
