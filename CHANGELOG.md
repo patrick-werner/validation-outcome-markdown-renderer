@@ -8,6 +8,16 @@ Entries before 1.4.0 were reconstructed from the git history and the GitHub rele
 notes, so they cover the user-visible changes rather than every commit. Dependency
 bumps are omitted throughout.
 
+## [1.5.0] - 2026-08-07
+
+### Changed
+
+- The action runs on the `node24` runtime instead of `node20`, which GitHub has
+  deprecated. Workflows keep working unchanged, but the runner has to be new enough to
+  provide Node 24: GitHub-hosted runners are, self-hosted runners need runner 2.327.1
+  or newer, and GitHub Enterprise Server needs 3.19 or newer. On an older runner the
+  step fails to start rather than falling back to Node 20.
+
 ## [1.4.0] - 2026-08-07
 
 ### Added
@@ -99,6 +109,7 @@ skip-rules for known issues, and fails the job if any `ERROR` remains after filt
 Initial release.
 
 [#20]: https://github.com/patrick-werner/validation-outcome-markdown-renderer/issues/20
+[1.5.0]: https://github.com/patrick-werner/validation-outcome-markdown-renderer/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/patrick-werner/validation-outcome-markdown-renderer/compare/1.3.0...v1.4.0
 [1.3.0]: https://github.com/patrick-werner/validation-outcome-markdown-renderer/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/patrick-werner/validation-outcome-markdown-renderer/compare/1.2.1...1.2.2

@@ -6,8 +6,8 @@ Thank you for your interest in contributing! 🎉
 
 ### Prerequisites
 
-- Node.js 20.x or higher
-- npm 9.x or higher
+- Node.js 24.x or higher (the runtime the action declares in `action.yml`)
+- npm 11.x or higher
 
 ### Getting Started
 
