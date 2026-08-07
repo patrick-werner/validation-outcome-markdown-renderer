@@ -186,3 +186,68 @@ describe('shouldSkipIssue()', () => {
     expect(shouldSkipIssue(ctx2, filters)).toBe(false);
   });
 });
+
+describe('zero-width characters in locations (#20)', () => {
+  const { normalizeLocation } = require('../src/filter');
+  const { formatLocationForTable } = require('../src/index');
+
+  function locationFilter(pattern) {
+    return [{ fileName: '', msgId: '', detPattern: '', locationPattern: pattern }];
+  }
+
+  function ctxWith(location) {
+    return { fileName: 'f.json', messageId: '', details: '', location };
+  }
+
+  test('the rendered table no longer emits zero-width spaces', () => {
+    const rendered = formatLocationForTable('Observation.code');
+    expect(rendered).toBe('Observation.<wbr>code');
+    expect(rendered).not.toMatch(/[​-‍﻿]/);
+  });
+
+  test('a location copied out of the summary table matches', () => {
+    // exactly what a user sees in the Checks table / PR comment and copies
+    const location = 'Observation.component[0].code.coding[1]';
+    const copied = formatLocationForTable(location);
+
+    expect(shouldSkipIssue(ctxWith(location), locationFilter(copied))).toBe(true);
+  });
+
+  test('a filter written by hand still matches', () => {
+    const location = 'Observation.code';
+    expect(shouldSkipIssue(ctxWith(location), locationFilter('Observation.code'))).toBe(true);
+  });
+
+  test('a filter carrying zero-width spaces from an older release still matches', () => {
+    // people copied these out of the console before the table-only change
+    const legacy = 'Observation.​code';
+    expect(shouldSkipIssue(ctxWith('Observation.code'), locationFilter(legacy))).toBe(true);
+  });
+
+  test('a location carrying zero-width spaces matches a clean filter', () => {
+    expect(shouldSkipIssue(ctxWith('Observation.​code'), locationFilter('Observation.code'))).toBe(true);
+  });
+
+  test('wildcards still work across a copied location', () => {
+    const copied = formatLocationForTable('Specimen.extension[1].extension[0].value');
+    expect(shouldSkipIssue(ctxWith('Specimen.extension[1].extension[0].value'), locationFilter(copied))).toBe(true);
+    expect(shouldSkipIssue(ctxWith('Specimen.extension[1].extension[0].value'), locationFilter('Specimen.*.value'))).toBe(true);
+  });
+
+  test('normalization does not make unrelated locations match', () => {
+    expect(shouldSkipIssue(ctxWith('Observation.code'), locationFilter('Observation.value'))).toBe(false);
+  });
+
+  test('normalizeLocation removes rendering artefacts only', () => {
+    expect(normalizeLocation('a​b‌c‍d﻿e')).toBe('abcde');
+    expect(normalizeLocation('a.<wbr>b.<wbr/>c.<WBR>d')).toBe('a.b.c.d');
+    expect(normalizeLocation('Observation.code')).toBe('Observation.code');
+  });
+
+  test('what the browser shows for a rendered location is the plain location', () => {
+    // <wbr> is markup, so it never reaches the clipboard when copied from the
+    // rendered table — this is the path fix 2 addresses
+    const location = 'Observation.component[0].code';
+    expect(formatLocationForTable(location).replace(/<wbr>/g, '')).toBe(location);
+  });
+});
