@@ -1,6 +1,6 @@
 {
   "name": "fhir-validation-action",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "GitHub Action for FHIR validation results rendering and filtering",
   "main": "dist/index.js",
   "engines": {
