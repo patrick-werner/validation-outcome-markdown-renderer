@@ -120,4 +120,24 @@ function parseValidationOutcome(text, filePath = '') {
   }
 }
 
-module.exports = { parseValidationOutcome, parseXml };
+/**
+ * Return the bundle entries as `{ resource }` objects, or wrap a standalone
+ * OperationOutcome in the same shape.
+ *
+ * Entries without a resource are skipped. The IG Publisher always writes a first
+ * entry for link-check messages; when there are none, that OperationOutcome has no
+ * issue and is serialised as an empty `<entry/>` (parsed to `''`).
+ * @param {Object} data - parsed Bundle or OperationOutcome
+ * @returns {Array<{resource: Object}>}
+ */
+function outcomeEntries(data) {
+  if (data && data.resourceType === 'Bundle') {
+    return (data.entry || []).filter(e => e && typeof e === 'object' && e.resource);
+  }
+  if (data && data.resourceType === 'OperationOutcome') {
+    return [{ resource: data }];
+  }
+  throw new Error(`Unsupported resource type: ${data && data.resourceType}`);
+}
+
+module.exports = { parseValidationOutcome, parseXml, outcomeEntries };

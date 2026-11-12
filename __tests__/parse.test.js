@@ -1,5 +1,5 @@
 // __tests__/parse.test.js
-const { parseValidationOutcome, parseXml } = require('../src/parse');
+const { parseValidationOutcome, parseXml, outcomeEntries } = require('../src/parse');
 
 const BUNDLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <Bundle xmlns="http://hl7.org/fhir">
@@ -135,5 +135,34 @@ describe('parseValidationOutcome()', () => {
       .toThrow(/Failed to parse JSON file validation\.json/);
     expect(() => parseValidationOutcome('<Bundle><unclosed></Bundle>', 'qa.xml'))
       .toThrow(/Failed to parse XML file qa\.xml/);
+  });
+});
+
+describe('outcomeEntries', () => {
+  const EMPTY_FIRST_ENTRY_XML = `<?xml version="1.0" encoding="UTF-8"?><Bundle xmlns="http://hl7.org/fhir"><type value="collection"/><entry/><entry><resource><OperationOutcome><extension url="http://hl7.org/fhir/StructureDefinition/operationoutcome-file"><valueString value="fsh-generated/resources/ActorDefinition-a.json"/></extension><issue><severity value="information"/><code value="business-rule"/><details><text value="could usefully have an OID assigned"/></details><expression value="Resource"/></issue></OperationOutcome></resource></entry></Bundle>`;
+
+  test('skips the empty <entry/> the IG Publisher writes when there are no link-check messages', () => {
+    const entries = outcomeEntries(parseValidationOutcome(EMPTY_FIRST_ENTRY_XML, 'qa.xml'));
+    expect(entries).toHaveLength(1);
+    expect(entries[0].resource.resourceType).toBe('OperationOutcome');
+    expect(entries[0].resource.issue[0].severity).toBe('information');
+  });
+
+  test('skips JSON entries without a resource', () => {
+    const data = { resourceType: 'Bundle', type: 'collection', entry: [{}, { resource: { resourceType: 'OperationOutcome', issue: [] } }] };
+    expect(outcomeEntries(data)).toHaveLength(1);
+  });
+
+  test('treats a bundle without entries as having no issues', () => {
+    expect(outcomeEntries({ resourceType: 'Bundle', type: 'collection' })).toEqual([]);
+  });
+
+  test('wraps a standalone OperationOutcome', () => {
+    const oo = { resourceType: 'OperationOutcome', issue: [] };
+    expect(outcomeEntries(oo)).toEqual([{ resource: oo }]);
+  });
+
+  test('rejects other resource types', () => {
+    expect(() => outcomeEntries({ resourceType: 'Patient' })).toThrow(/Unsupported resource type: Patient/);
   });
 });

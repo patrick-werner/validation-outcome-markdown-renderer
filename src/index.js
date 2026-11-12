@@ -2,7 +2,7 @@ const core = require('@actions/core');
 const fs = require('fs');
 const path = require('path');
 const { shouldSkipIssue } = require('./filter');
-const { parseValidationOutcome } = require('./parse');
+const { parseValidationOutcome, outcomeEntries } = require('./parse');
 
 /**
  * Give the summary table a chance to wrap long locations.
@@ -38,16 +38,9 @@ async function run() {
     const text = fs.readFileSync(bundlePath, 'utf8');
     const data = parseValidationOutcome(text, bundlePath);
 
-    // Handle both Bundle and single OperationOutcome formats
-    let entries = [];
-    if (data.resourceType === 'Bundle' && data.entry) {
-      entries = data.entry;
-    } else if (data.resourceType === 'OperationOutcome') {
-      // Wrap single OperationOutcome in entry format
-      entries = [{ resource: data }];
-    } else {
-      throw new Error(`Unsupported resource type: ${data.resourceType}`);
-    }
+    // Handle both Bundle and single OperationOutcome formats; entries without a
+    // resource (the IG Publisher writes an empty <entry/>) are skipped
+    const entries = outcomeEntries(data);
 
     // 4) Compute original counts of all issues by severity
     const origCounts = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
