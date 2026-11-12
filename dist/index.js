@@ -25941,7 +25941,7 @@ const core = __nccwpck_require__(7484);
 const fs = __nccwpck_require__(9896);
 const path = __nccwpck_require__(6928);
 const { shouldSkipIssue } = __nccwpck_require__(8067);
-const { parseValidationOutcome } = __nccwpck_require__(3046);
+const { parseValidationOutcome, outcomeEntries } = __nccwpck_require__(3046);
 
 /**
  * Give the summary table a chance to wrap long locations.
@@ -25977,16 +25977,9 @@ async function run() {
     const text = fs.readFileSync(bundlePath, 'utf8');
     const data = parseValidationOutcome(text, bundlePath);
 
-    // Handle both Bundle and single OperationOutcome formats
-    let entries = [];
-    if (data.resourceType === 'Bundle' && data.entry) {
-      entries = data.entry;
-    } else if (data.resourceType === 'OperationOutcome') {
-      // Wrap single OperationOutcome in entry format
-      entries = [{ resource: data }];
-    } else {
-      throw new Error(`Unsupported resource type: ${data.resourceType}`);
-    }
+    // Handle both Bundle and single OperationOutcome formats; entries without a
+    // resource (the IG Publisher writes an empty <entry/>) are skipped
+    const entries = outcomeEntries(data);
 
     // 4) Compute original counts of all issues by severity
     const origCounts = { ERROR: 0, WARNING: 0, INFORMATION: 0 };
@@ -26303,7 +26296,27 @@ function parseValidationOutcome(text, filePath = '') {
   }
 }
 
-module.exports = { parseValidationOutcome, parseXml };
+/**
+ * Return the bundle entries as `{ resource }` objects, or wrap a standalone
+ * OperationOutcome in the same shape.
+ *
+ * Entries without a resource are skipped. The IG Publisher always writes a first
+ * entry for link-check messages; when there are none, that OperationOutcome has no
+ * issue and is serialised as an empty `<entry/>` (parsed to `''`).
+ * @param {Object} data - parsed Bundle or OperationOutcome
+ * @returns {Array<{resource: Object}>}
+ */
+function outcomeEntries(data) {
+  if (data && data.resourceType === 'Bundle') {
+    return (data.entry || []).filter(e => e && typeof e === 'object' && e.resource);
+  }
+  if (data && data.resourceType === 'OperationOutcome') {
+    return [{ resource: data }];
+  }
+  throw new Error(`Unsupported resource type: ${data && data.resourceType}`);
+}
+
+module.exports = { parseValidationOutcome, parseXml, outcomeEntries };
 
 /***/ }),
 

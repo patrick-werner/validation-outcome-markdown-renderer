@@ -8,6 +8,17 @@ Entries before 1.4.0 were reconstructed from the git history and the GitHub rele
 notes, so they cover the user-visible changes rather than every commit. Dependency
 bumps are omitted throughout.
 
+## [1.5.1] - unreleased
+
+### Fixed
+
+- The `output/qa.xml` of IG Publisher 3.x no longer aborts the action with
+  `Cannot read properties of undefined (reading 'issue')`. The Publisher always writes a
+  first bundle entry for link-check messages and, when there are none, serialises it as
+  an empty `<entry/>`. Entries without a resource are now skipped, in XML and JSON.
+- A `Bundle` without any entries is read as having no issues instead of failing with
+  `Unsupported resource type: Bundle`.
+
 ## [1.5.0] - 2026-08-07
 
 ### Changed
